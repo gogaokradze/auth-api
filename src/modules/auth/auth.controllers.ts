@@ -8,7 +8,6 @@ import config from "../../config/index";
 
 export const login = async (req: Request, res: Response) => {
   const { email, password } = req.body;
-
   try {
     // Find the user with the specified email
     const user = await User.findOne({ email: email });
@@ -22,11 +21,31 @@ export const login = async (req: Request, res: Response) => {
       return res.status(401).send({ error: "Invalid password" });
     }
 
-    // Generate a JWT token
-    const token = jwt.sign({ id: user._id }, config.jwtSecret, { expiresIn: "1d" });
+    // Generate JWT access token
+    const accessToken = jwt.sign({ userId: user._id }, config.jwtSecret, {
+      expiresIn: "3s",
+    });
 
-    // Return the token in the response
-    res.send({ token });
+    // Generate JWT refresh token
+    const refreshToken = jwt.sign({ userId: user._id }, config.jwtSecret, {
+      expiresIn: "20s",
+    });
+
+    res.cookie("Access-Token", accessToken, {
+      sameSite: "none",
+      httpOnly: true,
+      secure: true,
+    });
+    res.cookie("Refresh-Token", refreshToken, {
+      sameSite: "none",
+      httpOnly: true,
+      secure: true,
+    });
+
+    // Send the response
+    res.send({
+      message: "login successfull",
+    });
   } catch (error) {
     res.status(500).send({ error: "Error logging in" });
   }
@@ -60,7 +79,10 @@ export const register = async (req: Request, res: Response): Promise<any> => {
   await user.save();
 
   res.setHeader("Access-Token", accessToken);
-  res.setHeader("Refresh-Token", refreshToken);
+  res.cookie("Refresh-Token", refreshToken, {
+    httpOnly: true,
+    secure: true,
+  });
 
   // Send the response
   res.send({
