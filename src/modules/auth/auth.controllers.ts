@@ -6,6 +6,10 @@ import { User } from "../../models/User";
 
 import config from "../../config/index";
 
+interface RequestWithUserId extends Request {
+  userId: string;
+}
+
 export const login = async (req: Request, res: Response) => {
   const { email, password } = req.body;
   try {
@@ -23,12 +27,12 @@ export const login = async (req: Request, res: Response) => {
 
     // Generate JWT access token
     const accessToken = jwt.sign({ userId: user._id }, config.jwtSecret, {
-      expiresIn: "3s",
+      expiresIn: "15m",
     });
 
     // Generate JWT refresh token
     const refreshToken = jwt.sign({ userId: user._id }, config.jwtSecret, {
-      expiresIn: "20s",
+      expiresIn: "30d",
     });
 
     res.cookie("Access-Token", accessToken, {
@@ -44,10 +48,32 @@ export const login = async (req: Request, res: Response) => {
 
     // Send the response
     res.send({
-      message: "login successfull",
+      username: user.username,
+      email: user.email,
     });
   } catch (error) {
     res.status(500).send({ error: "Error logging in" });
+  }
+};
+
+export const logout = async (req: Request, res: Response) => {
+  const user = await User.findOne({ _id: (req as RequestWithUserId).userId });
+  if (user) {
+    // Clear the access and refresh tokens from the cookies
+    // res.clearCookie("Access-Token");
+    // res.clearCookie("Refresh-Token");
+
+    res.cookie("Access-Token", "", {
+      sameSite: "none",
+      httpOnly: true,
+      secure: true,
+    });
+    res.cookie("Refresh-Token", "", {
+      sameSite: "none",
+      httpOnly: true,
+      secure: true,
+    });
+    res.status(200).send("logged out");
   }
 };
 
@@ -71,39 +97,38 @@ export const register = async (req: Request, res: Response): Promise<any> => {
 
   // Generate JWT refresh token
   const refreshToken = jwt.sign({ userId: user._id }, config.jwtSecret, {
-    expiresIn: "7d",
+    expiresIn: "30d",
   });
 
   // Save the refresh token in the database
   user.refreshToken = refreshToken;
   await user.save();
 
-  res.setHeader("Access-Token", accessToken);
+  res.cookie("Access-Token", accessToken, {
+    sameSite: "none",
+    httpOnly: true,
+    secure: true,
+  });
   res.cookie("Refresh-Token", refreshToken, {
+    sameSite: "none",
     httpOnly: true,
     secure: true,
   });
 
-  // Send the response
   res.send({
     message: "Successfully registered",
   });
 };
 
-// function generateJWT(user: any) {
-//   const accessToken = jwt.sign({
-//     id: user._id,
-//     email: user.email
-//   }, process.env.JWT_SECRET, {
-//     expiresIn: '15m'
-//   });
+export const getUserInfo = async (req: Request, res: Response): Promise<any> => {
+  const userId = (req as RequestWithUserId).userId;
 
-//   const refreshToken = jwt.sign({
-//     id: user._id,
-//     email: user.email
-//   }, process.env.JWT_SECRET, {
-//     expiresIn: '7d'
-//   });
+  if (userId) {
+    const user = await User.findOne({ _id: userId });
+    const userData = { username: user?.username, email: user?.email };
 
-//   return { accessToken, refreshToken };
-// }
+    return res.status(200).send(userData);
+  }
+
+  res.status(404).send("no user found");
+};

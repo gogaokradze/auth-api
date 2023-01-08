@@ -7,12 +7,13 @@ dotenv.config();
 
 import corsOptions from "./config/corsOptions";
 import authRoutes from "./modules/auth/auth.routes";
-import protectedRoutes from "./modules/protected/protected.routes";
 import { isAuthenticated } from "./services/isAuthenticated";
 
 import cookieParser from "cookie-parser";
 
 const app = express();
+
+// import { logout } from "./modules/auth/auth.controllers";
 
 // Enable CORS
 app.use(cors(corsOptions));
@@ -24,8 +25,7 @@ app.use(isAuthenticated);
 
 // Use the routes
 app.use("/auth", authRoutes);
-app.use("/protected", protectedRoutes);
-// app.use("/route2", router2);
+// app.use("/logout", logout);
 
 // Start the server
 const port = process.env.PORT || 8080;
